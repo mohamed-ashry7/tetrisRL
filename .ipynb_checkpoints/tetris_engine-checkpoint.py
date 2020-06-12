@@ -99,7 +99,9 @@ class TetrisEngine:
 
         # clear after initializing
         self.clear()
-
+    
+    
+    
     def _choose_shape(self):
         maxm = max(self._shape_counts)
         m = [5 + maxm - x for x in self._shape_counts]
@@ -192,3 +194,14 @@ class TetrisEngine:
         s += '\no' + '-' * self.width + 'o'
         self._set_piece(False)
         return s
+    
+    
+    # ADDED Functions
+    
+    # Random Action 
+    
+    def random_action(self):
+        return int(np.random.random()*len(self.value_action_map))
+    
+    def number_actions(self):
+        return len(self.action_value_map)

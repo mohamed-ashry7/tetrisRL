@@ -7,7 +7,7 @@ import numpy as np
 class DQN(nn.Module):
     
     
-    def __int__(self,input_shape,number_actions):
+    def __init__(self,input_shape,number_actions):
         super(DQN,self).__init__()
         
         self.conv_layers=nn.Sequential(
@@ -20,18 +20,17 @@ class DQN(nn.Module):
         )
         
         linear_input_shape=self._conv_to_linear_shape(input_shape)
-        
+#         print(linear_input_shape)
         self.fc_layers=nn.Sequential(
             nn.Linear(linear_input_shape, 256),
-            nn.ReLU().
-            nn.Linear(256, number_actions)
-            
+            nn.ReLU(),
+            nn.Linear(256, number_actions)   
         )
 
         
     def _conv_to_linear_shape(self,shape):
         o=self.conv_layers(torch.zeros(1,*shape))
-        return int(np.prod(o.size))
+        return int(np.prod(o.size()))
     
     
     def forward(self,x):
