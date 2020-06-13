@@ -197,11 +197,12 @@ class TetrisEngine:
     
     
     # ADDED Functions
-    
-    # Random Action 
-    
+        
     def random_action(self):
         return int(np.random.random()*len(self.value_action_map))
     
     def number_actions(self):
         return len(self.action_value_map)
+    
+    def env_shape(self):
+        return [1,self.width,self.height]
