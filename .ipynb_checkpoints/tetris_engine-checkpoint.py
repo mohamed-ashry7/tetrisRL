@@ -159,7 +159,8 @@ class TetrisEngine:
 
         return valid_action_sum
     
-    def sigmoid(r):
+    def sigmoid(self,r):
+        r/=50 
         return (1/(1+np.exp(-r))-0.5)*2
     
     def step(self, action):
@@ -180,7 +181,7 @@ class TetrisEngine:
             
             self._set_piece(True)
             self._clear_lines()
-            state_evaluation= calc_state_evaluation()
+            state_evaluation= self.calc_state_evaluation()
             reward=state_evaluation-self.prev_state_evaluation
             self.prev_state_evaluation=state_evaluation
             if np.any(self.board[:, 0]):
@@ -198,7 +199,7 @@ class TetrisEngine:
         
         
         
-        return state, sigmoid(reward), done
+        return state, self.sigmoid(reward), done
 
     def clear(self):
         self.time = 0
@@ -257,7 +258,7 @@ class TetrisEngine:
                     if j-1 <0 and state[i,j+1] or j+1 >=state.shape[1] and state[i,j-1] or state[i,j-1] and state[i,j+1]:
                         wells+=1
                     
-        
+#         print(f"row_trans={row_trans}\ncol_trans={col_trans}\nholes={holes}\nwells={wells}\nlanding_height={self.landing_height}\ncleared_lines={self.cleared_lines}")
         estimated_evaluation= -4.500158825082766*self.landing_height\
         +3.4181268101392694*self.cleared_lines\
         -3.2178882868487753*row_trans\
