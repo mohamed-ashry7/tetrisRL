@@ -22,13 +22,17 @@ def rotated(shape, cclk=False):
         return [(j, -i) for i, j in shape]
 
 
-def is_occupied(shape, anchor, board):
+def is_occupied(shape, anchor, board,h=False):
     for i, j in shape:
         x, y = anchor[0] + i, anchor[1] + j
         if y < 0:
             continue
         if x < 0 or x >= board.shape[0] or y >= board.shape[1] or board[x, y]:
+            if h:
+                return True, max(board.shape[1]-y,0)
             return True
+    if h:
+        return False,None
     return False
 
 
@@ -93,7 +97,11 @@ class TetrisEngine:
         self.anchor = None
         self.shape = None
         self.n_deaths = 0
-
+        
+        self.prev_state_evaluation=0
+        self.landing_height=None
+        self.cleared_lines=0
+        
         # used for generating shapes
         self._shape_counts = [0] * len(shapes)
 
@@ -120,7 +128,8 @@ class TetrisEngine:
         self.shape = self._choose_shape()
 
     def _has_dropped(self):
-        return is_occupied(self.shape, (self.anchor[0], self.anchor[1] + 1), self.board)
+        is_occ,self.landing_height=is_occupied(self.shape, (self.anchor[0], self.anchor[1] + 1), self.board,h=True)
+        return is_occ
 
     def _clear_lines(self):
         can_clear = [np.all(self.board[:, i]) for i in range(self.height)]
@@ -133,7 +142,7 @@ class TetrisEngine:
         self.score += sum(can_clear)
         self.board = new_board
 
-        return sum(can_clear)
+        self.cleared_lines+= sum(can_clear)
 
     def valid_action_count(self):
         valid_action_sum = 0
@@ -144,7 +153,10 @@ class TetrisEngine:
                 valid_action_sum += 1
 
         return valid_action_sum
-
+    
+    def sigmoid(r):
+        return (1/(1+np.exp(-x))-0.5)*2
+    
     def step(self, action):
         self.anchor = (int(self.anchor[0]), int(self.anchor[1]))
         self.shape, self.anchor = self.value_action_map[action](self.shape, self.anchor, self.board)
@@ -153,32 +165,44 @@ class TetrisEngine:
 
         # Update time and reward
         self.time += 1
-        reward = self.valid_action_count()
+        self.valid_action_count()
+        reward=0
         #reward = 1
 
         done = False
+        
         if self._has_dropped():
+            
             self._set_piece(True)
-            reward += 10 * self._clear_lines()
+            self._clear_lines()
+            state_evaluation= calc_state_evaluation()
+            reward=state_evaluation-self.prev_state_evaluation
+            self.prev_state_evaluation=state_evaluation
             if np.any(self.board[:, 0]):
                 self.clear()
                 self.n_deaths += 1
                 done = True
-                reward = -10
+                reward-=10 # Penalty for losing
             else:
                 self._new_piece()
 
         self._set_piece(True)
         state = np.copy(self.board)
         self._set_piece(False)
-        return state, reward, done
+        #calcualte the Reward based on the Evaluation of the states. 
+        
+        
+        
+        return state, sigmoid(reward), done
 
     def clear(self):
         self.time = 0
         self.score = 0
         self._new_piece()
         self.board = np.zeros_like(self.board)
-
+        self.prev_state_evaluation=0
+        self.landing_height=None
+        self.cleared_lines=0
         return self.board
 
     def _set_piece(self, on=False):
@@ -206,3 +230,35 @@ class TetrisEngine:
     
     def env_shape(self):
         return [1,self.width,self.height]
+    
+    
+    
+    def calc_state_evaluation(self):
+        
+        state=np.copy(self.board).T
+        row_trans=0
+        col_trans=0
+        holes=0
+        wells=0
+        
+        
+        for j in range(state.shape[1]):          
+            for i in range(state.shape[0]-1,0,-1):
+                if j>0:
+                    row_trans+=1 if state[i,j]!=state[i,j-1] else 0
+                col_trans+=1 if state[i,j]!=state[i-1,j] else 0 
+                holes+=1 if state[i,j]==0 and state[i-1,j]==1 else 0
+                if state[i,j]==0:
+                    if j-1 <0 and state[i,j+1] or j+1 >=state.shape[1] and state[i,j-1] or state[i,j-1] and state[i,j+1]:
+                        wells+=1
+                    
+        
+        estimated_evaluation= -4.500158825082766*self.landing_height\
+        +3.4181268101392694*self.cleared_lines\
+        -3.2178882868487753*row_trans\
+        -9.348695305445199*col_trans\
+        -7.899265427351652*holes\
+        -3.3855972247263626*wells  # These Values are estimated according to Particle Swarm optimization https://imake.ninja/el-tetris-an-improvement-on-pierre-dellacheries-algorithm/
+        return estimated_evaluation
+                
+            

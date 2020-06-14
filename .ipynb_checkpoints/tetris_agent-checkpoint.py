@@ -149,7 +149,7 @@ if __name__=="__main__":
                 print("%d: done %d games, reward %.3f, "
                 "eps %.2f, speed %.2f f/s" % (frame_idx, len(total_rewards), m_reward, epsilon,speed))
                 if best_m_reward is None or best_m_reward < m_reward:
-                    torch.save(net.state_dict(), "tetrisJay-best_%.0f.dat" % m_reward)
+                    torch.save(net.state_dict(), "./dqn_models_stats/tetrisJay-best_%.0f.dat" % m_reward)
                     if best_m_reward is not None:
                         print("Best reward updated %.3f -> %.3f" % (
                         best_m_reward, m_reward))
