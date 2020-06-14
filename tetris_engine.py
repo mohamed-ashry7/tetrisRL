@@ -1,5 +1,10 @@
 #from __future__ import print_function
 
+
+
+# This File is Originally taken from https://github.com/jaybutera/tetrisRL. 
+# There are some modification to this environment to be fine the model chosen.
+
 import numpy as np
 import random
 
@@ -155,7 +160,7 @@ class TetrisEngine:
         return valid_action_sum
     
     def sigmoid(r):
-        return (1/(1+np.exp(-x))-0.5)*2
+        return (1/(1+np.exp(-r))-0.5)*2
     
     def step(self, action):
         self.anchor = (int(self.anchor[0]), int(self.anchor[1]))
