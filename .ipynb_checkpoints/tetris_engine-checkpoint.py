@@ -131,7 +131,7 @@ class TetrisEngine:
         self.anchor = (self.width / 2, 0)
         #self.anchor = (x, 0)
         self.shape = self._choose_shape()
-
+    # Modification
     def _has_dropped(self):
         is_occ,self.landing_height=is_occupied(self.shape, (self.anchor[0], self.anchor[1] + 1), self.board,h=True)
         return is_occ
@@ -240,7 +240,14 @@ class TetrisEngine:
     
     
     def calc_state_evaluation(self):
+        # This Function is based on the features of Dr. Schwenker and Dellachereie
+        #Schwenker Features are average height->avgh , holes -> holes, maximum height->maxh, Quadratic UnEvenness ->qu
+        #You can review the paper that discusses this feature 
+        # "A Reinforcement Learning Algorithm to Train a Tetris Playing Agent"
+        #    Patrick Thiam, Viktor Kessler, and Friedhelm Schwenker
+        # The Dellacherie features can be found in that paper ->Fahey, C. P. (2003). Tetris AI, Computer plays Tetris
         
+        # The chosen features would be only qu,avg,holes,wells 
         state=np.copy(self.board).T
         row_trans=0
         col_trans=0

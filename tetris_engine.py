@@ -131,11 +131,11 @@ class TetrisEngine:
         self.anchor = (self.width / 2, 0)
         #self.anchor = (x, 0)
         self.shape = self._choose_shape()
-
+    # Modification
     def _has_dropped(self):
         is_occ,self.landing_height=is_occupied(self.shape, (self.anchor[0], self.anchor[1] + 1), self.board,h=True)
         return is_occ
-
+    #Modification
     def _clear_lines(self):
         can_clear = [np.all(self.board[:, i]) for i in range(self.height)]
         new_board = np.zeros_like(self.board)
@@ -158,11 +158,11 @@ class TetrisEngine:
                 valid_action_sum += 1
 
         return valid_action_sum
-    
+    #Modification
     def sigmoid(self,r):
         r/=50 
         return (1/(1+np.exp(-r))-0.5)*2
-    
+    #Modification
     def step(self, action):
         self.anchor = (int(self.anchor[0]), int(self.anchor[1]))
         self.shape, self.anchor = self.value_action_map[action](self.shape, self.anchor, self.board)
@@ -206,6 +206,7 @@ class TetrisEngine:
         self.score = 0
         self._new_piece()
         self.board = np.zeros_like(self.board)
+        #Modification
         self.prev_state_evaluation=0
         self.landing_height=None
         self.cleared_lines=0
@@ -227,7 +228,7 @@ class TetrisEngine:
     
     
     # ADDED Functions
-        
+    #Modification   
     def random_action(self):
         return int(np.random.random()*len(self.value_action_map))
     
@@ -240,7 +241,14 @@ class TetrisEngine:
     
     
     def calc_state_evaluation(self):
+        # This Function is based on the features of Dr. Schwenker and Dellachereie
+        #Schwenker Features are average height->avgh , holes -> holes, maximum height->maxh, Quadratic UnEvenness ->qu
+        #You can review the paper that discusses this feature 
+        # "A Reinforcement Learning Algorithm to Train a Tetris Playing Agent"
+        #    Patrick Thiam, Viktor Kessler, and Friedhelm Schwenker
+        # The Dellacherie features can be found in that paper ->Fahey, C. P. (2003). Tetris AI, Computer plays Tetris
         
+        # The chosen features would be only qu,avg,holes,wells 
         state=np.copy(self.board).T
         row_trans=0
         col_trans=0
