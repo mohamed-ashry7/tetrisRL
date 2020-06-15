@@ -64,8 +64,8 @@ class Agent():
             action = self.env.random_action()
         else :
             state_a=np.array([self.state],copy=False)
-            state_v=torch.tensor(state_a).type(FloatTensor).to(device)
-            q_vals_v=net(state_v.unsqueeze(0))
+            state_v=torch.tensor(state_a).unsqueeze(0).type(FloatTensor).to(device)
+            q_vals_v=net(state_v)
             _,action_v=torch.max(q_vals_v,dim=1)
             action=int(action_v.item())
 
@@ -107,6 +107,7 @@ if __name__=="__main__":
     parser=argparse.ArgumentParser()
 
     parser.add_argument("--cuda",default=False,help="Enable cuda",action="store_true")
+    parser.add_argument("--cuda-version",default=0,help="Determining cuda version",action="store")
     parser.add_argument("--width",default=10,help="Board Width",action="store")
     parser.add_argument("--height",default=20,help="Board Height",action="store")
     parser.add_argument("--mode",default='train',help="Define the mode of the model play or train",action="store")
@@ -114,15 +115,17 @@ if __name__=="__main__":
     
     args=parser.parse_args()
     
-    device=torch.device("cuda" if args.cuda else "cpu")
+    device=torch.device(f"cuda:{args.cuda_version}" if args.cuda else "cpu")
     env=TetrisEngine(args.width,args.height)
-
+    
     net=DQN(env.env_shape(),env.number_actions()).to(device)
     target_net=DQN(env.env_shape(),env.number_actions()).to(device)
     replay_buffer=ReplayBuffer(REPLAY_SIZE)
     print(net)
     agent=Agent(env,replay_buffer)
-
+    
+#     x= torch.zeros([1,1,10,20]).to(device)
+#     vv=net(x)
 
 
     if args.mode =='train':
@@ -147,7 +150,7 @@ if __name__=="__main__":
                 print("%d: done %d games, reward %.3f, "
                 "eps %.2f, speed %.2f f/s" % (frame_idx, len(total_rewards), m_reward, epsilon,speed))
                 if best_m_reward is None or best_m_reward < m_reward:
-                    torch.save(net.state_dict(), "./dqn_models_stats/tetrisJay-best_%.0f.dat" % m_reward)
+                    torch.save(net.state_dict(), "./dqn_models_stats/tetris_cnn_Della-best_%.0f.dat" % m_reward)
                     if best_m_reward is not None:
                         print("Best reward updated %.3f -> %.3f" % (
                         best_m_reward, m_reward))
