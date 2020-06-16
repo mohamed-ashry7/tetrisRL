@@ -59,7 +59,7 @@ class Agent():
         done_reward=None
         FloatTensor= torch.cuda.FloatTensor if device=='cuda' else torch.FloatTensor
 
-        
+        net.eval()
         if np.random.random()<eps:
             action = self.env.random_action()
         else :
@@ -83,6 +83,7 @@ class Agent():
         return done_reward
     
     def calc_loss(self,batch,net,target_net,device='cpu'):
+        net.train()
         FloatTensor= torch.cuda.FloatTensor if device=='cuda' else torch.FloatTensor
 
         states,actions,rewards,dones,next_states=batch
