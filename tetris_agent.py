@@ -10,11 +10,11 @@ import torch.nn as nn
 import time
 
 GAMMA = 0.99
-BATCH_SIZE = 320
-REPLAY_SIZE = 80000
-REPLAY_START_SIZE = 80000
+BATCH_SIZE = 640
+REPLAY_SIZE = 15000
+REPLAY_START_SIZE = 15000
 LEARNING_RATE = 1e-5
-SYNC_TARGET_FRAMES = 80000
+SYNC_TARGET_FRAMES = 25000
 MEAN_REWARD_BOUND=100
 EPSILON_DECAY_LAST_FRAME = 150000
 EPSILON_START = 1.0
@@ -160,9 +160,9 @@ if __name__=="__main__":
                 continue
             if frame_idx % SYNC_TARGET_FRAMES == 0:
                 target_net.load_state_dict(net.state_dict())
+            
             optimizer.zero_grad()
             batch = replay_buffer.sample(BATCH_SIZE)
-            
             loss_t = agent.calc_loss(batch, net, target_net, device=device)
             loss_t.backward()
             optimizer.step()

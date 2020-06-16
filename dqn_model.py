@@ -9,7 +9,7 @@ class DQN(nn.Module):
     
     def __init__(self,input_shape,number_actions):
         super(DQN,self).__init__()
-        
+        input_shape=np.prod(input_shape)
 #         self.conv_layers=nn.Sequential(
 #             nn.Conv2d(1, 16, kernel_size=3, stride=1),
 #             nn.BatchNorm2d(16),
@@ -30,7 +30,7 @@ class DQN(nn.Module):
             nn.ReLU(),
             nn.Linear(160, 110),
             nn.ReLU(),
-            nn.Linear(110, number_actions),
+            nn.Linear(110, 70),
             nn.ReLU(),
             nn.Linear(70, number_actions),
             nn.ReLU()
@@ -42,7 +42,10 @@ class DQN(nn.Module):
 #         o=self.conv_layers(torch.zeros(1,*shape))
 #         return int(np.prod(o.size()))
     
+    def flat_features_number(self,x):
+        features_size=x.size()[1:]
+        return np.prod(features_size)
     
     def forward(self,x):
 #         x=self.conv_layers(x)
-        return self.fc_layers(x.view(x.size()[0],-1))
+        return self.fc_layers(x.view(-1,self.flat_features_number(x)))

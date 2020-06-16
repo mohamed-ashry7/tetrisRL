@@ -113,7 +113,9 @@ class TetrisEngine:
         
         # used for generating shapes
         self._shape_counts = [0] * len(shapes)
-
+        
+        
+        self.maxh=0
         # clear after initializing
         self.clear()
     
@@ -132,11 +134,12 @@ class TetrisEngine:
     def _new_piece(self):
         # Place randomly on x-axis with 2 tiles padding
         #x = int((self.width/2+1) * np.random.rand(1,1)[0,0]) + 2
-        self.anchor = (self.width / 2, 0)
+        self.anchor = (self.width //2, 0)
         #self.anchor = (x, 0)
         self.shape = self._choose_shape()
-        for _ in range (2):# soft drop because the last action would be always hard_drop so we would want to see the piece
-                self.shape, self.anchor = soft_drop(self.shape, self.anchor, self.board)
+        self.shape, self.anchor = soft_drop(self.shape, self.anchor, self.board)
+
+        
     # Modification
     
     
@@ -156,18 +159,12 @@ class TetrisEngine:
                 j -= 1
         self.score += sum(can_clear)
         self.board = new_board
-
+        if sum(can_clear)>0:
+            print(self)
+            print("LINEEEEEEEEEE CLEAREEEEEEEEEEEEEEEEDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD!!!!!!!!!!!!!!")
         self.cleared_lines+= sum(can_clear)
 
-#     def valid_action_count(self):
-#         valid_action_sum = 0
 
-#         for value, fn in self.value_action_map.items():
-#             # If they're equal, it is not a valid action
-#             if fn(self.shape, self.anchor, self.board) != (self.shape, self.anchor):
-#                 valid_action_sum += 1
-
-#         return valid_action_sum
     #Modification
     def sigmoid(self,r):
         r/=50 
@@ -218,11 +215,10 @@ class TetrisEngine:
         if translations>0:    
             self._translate_grouped_action(translations,is_right)
         
-        
-        
-    
         self.shape, self.anchor = hard_drop(self.shape, self.anchor, self.board)
-        
+        for _ in range (2):# soft drop because the last action would be always hard_drop so we would want to see the piece
+            self.shape, self.anchor = soft_drop(self.shape, self.anchor, self.board)
+
     def step(self, action):
         
         
@@ -230,7 +226,6 @@ class TetrisEngine:
         self._exec_grouped_actions(action)
         # Update time and reward
         self.time += 1
-#         self.valid_action_count()
         reward=0
         #reward = 1
 
@@ -279,6 +274,7 @@ class TetrisEngine:
                 self.board[int(self.anchor[0] + i), int(self.anchor[1] + j)] = on
 
     def __repr__(self):
+        print(self.maxh)
         self._set_piece(True)
         s = 'o' + '-' * self.width + 'o\n'
         s += '\n'.join(['|' + ''.join(['X' if j else ' ' for j in i]) + '|' for i in self.board.T])
@@ -315,7 +311,7 @@ class TetrisEngine:
         wells=0
         qu=0
         avgh=0
-        maxh=0
+        self.maxh=0
         heights=[]
         prev_h=0
         for j in range(state.shape[1]):
@@ -323,9 +319,9 @@ class TetrisEngine:
             well_depth=0
             col=state[:,j]
             arr_ind=np.where(col==1)[0]
-            col_height=0 if len(arr_ind)=0 else len(col)-arr_ind[0]
+            col_height=0 if len(arr_ind)==0 else len(col)-arr_ind[0]
             heights.append(col_height)
-            maxh=max(maxh,col_height)
+            self.maxh=max(self.maxh,col_height)
             if j>0:
                 qu+=(col_height-prev_h)**2
             prev_h=col_height
@@ -342,7 +338,7 @@ class TetrisEngine:
                 
                     
         avgh=np.mean(heights)
-        estimated_evaluation= -5*avgh - qu - 16*holes + 10*self.cleared_lines - wells
+        estimated_evaluation= -5*avgh - qu - 16*holes + 20*self.cleared_lines - wells - 6 * self.maxh
         return estimated_evaluation
                 
             
