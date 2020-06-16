@@ -10,11 +10,11 @@ import torch.nn as nn
 import time
 
 GAMMA = 0.99
-BATCH_SIZE = 32
-REPLAY_SIZE = 10000
-REPLAY_START_SIZE = 10000
-LEARNING_RATE = 1e-4
-SYNC_TARGET_FRAMES = 10000
+BATCH_SIZE = 320
+REPLAY_SIZE = 80000
+REPLAY_START_SIZE = 80000
+LEARNING_RATE = 1e-5
+SYNC_TARGET_FRAMES = 80000
 MEAN_REWARD_BOUND=100
 EPSILON_DECAY_LAST_FRAME = 150000
 EPSILON_START = 1.0
@@ -65,7 +65,7 @@ class Agent():
         else :
             state_a=np.array([self.state],copy=False)
             state_v=torch.tensor(state_a).type(FloatTensor).to(device)
-            q_vals_v=net(state_v.unsqueeze(0))
+            q_vals_v=net(state_v)
             _,action_v=torch.max(q_vals_v,dim=1)
             action=int(action_v.item())
 
@@ -93,8 +93,8 @@ class Agent():
         rewards_v = torch.tensor(rewards).to(device)
         done_mask = torch.BoolTensor(dones).to(device)
         # Adding unsqueeze to adjust the size of the input of the network to be [BatchSize, channels, W,H]       
-        Q_values=net(states_v.unsqueeze(1)).gather(1, actions_v.unsqueeze(-1)).squeeze(-1)
-        next_Q_values=target_net(next_states_v.unsqueeze(1)).max(1)[0]
+        Q_values=net(states_v).gather(1, actions_v.unsqueeze(-1)).squeeze(-1)
+        next_Q_values=target_net(next_states_v).max(1)[0]
         next_Q_values[done_mask]=0.0        
         next_Q_values=next_Q_values.detach()
         expected_Q_values=rewards_v+GAMMA*next_Q_values

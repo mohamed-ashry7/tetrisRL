@@ -95,7 +95,11 @@ class TetrisEngine:
         }
         self.action_value_map = dict([(j, i) for i, j in self.value_action_map.items()])
         self.nb_actions = len(self.value_action_map)
-
+        
+        
+        
+        self.group_actions_number=4*(self.width+1) # Means that there are 4 possible rotations and width-number of translations +1 for idle translations
+        
         # for running the engine
         self.time = -1
         self.score = -1
@@ -131,10 +135,16 @@ class TetrisEngine:
         self.anchor = (self.width / 2, 0)
         #self.anchor = (x, 0)
         self.shape = self._choose_shape()
+        for _ in range (2):# soft drop because the last action would be always hard_drop so we would want to see the piece
+                self.shape, self.anchor = soft_drop(self.shape, self.anchor, self.board)
     # Modification
+    
+    
     def _has_dropped(self):
         is_occ,self.landing_height=is_occupied(self.shape, (self.anchor[0], self.anchor[1] + 1), self.board,h=True)
         return is_occ
+    
+    
     #Modification
     def _clear_lines(self):
         can_clear = [np.all(self.board[:, i]) for i in range(self.height)]
@@ -149,29 +159,78 @@ class TetrisEngine:
 
         self.cleared_lines+= sum(can_clear)
 
-    def valid_action_count(self):
-        valid_action_sum = 0
+#     def valid_action_count(self):
+#         valid_action_sum = 0
 
-        for value, fn in self.value_action_map.items():
-            # If they're equal, it is not a valid action
-            if fn(self.shape, self.anchor, self.board) != (self.shape, self.anchor):
-                valid_action_sum += 1
+#         for value, fn in self.value_action_map.items():
+#             # If they're equal, it is not a valid action
+#             if fn(self.shape, self.anchor, self.board) != (self.shape, self.anchor):
+#                 valid_action_sum += 1
 
-        return valid_action_sum
+#         return valid_action_sum
     #Modification
     def sigmoid(self,r):
         r/=50 
         return (1/(1+np.exp(-r))-0.5)*2
     #Modification
-    def step(self, action):
+    
+    def _rotate_grouped_action(self,rotations):
+        action_taken =5 if rotations==1 else 4
+        
         self.anchor = (int(self.anchor[0]), int(self.anchor[1]))
-        self.shape, self.anchor = self.value_action_map[action](self.shape, self.anchor, self.board)
-        # Drop each step
-        self.shape, self.anchor = soft_drop(self.shape, self.anchor, self.board)
-
+        self.shape, self.anchor = self.value_action_map[action_taken](self.shape, self.anchor, self.board)
+        
+        if rotations==3:# face up so that means 2 rotate_left or 2 rotate_right
+            self.anchor = (int(self.anchor[0]), int(self.anchor[1]))
+            self.shape, self.anchor = self.value_action_map[action_taken](self.shape, self.anchor, self.board)
+    
+    def _translate_grouped_action(self,translations,is_right):
+        action_taken=1 if is_right else 0
+        for _ in range(translations):
+            self.anchor = (int(self.anchor[0]), int(self.anchor[1]))
+            self.shape, self.anchor = self.value_action_map[action_taken](self.shape, self.anchor, self.board)
+    
+    
+    def _exec_grouped_actions(self,action):
+        
+        
+        #Basic Actions
+        #0: left,
+        #1: right,
+        #2: hard_drop,
+        #3: soft_drop,
+        #4: rotate_left,
+        #5: rotate_right,
+        #6: idle,
+        
+        #0->10  idle, for all v in first five values means move v+1 to the right and the last 5 moves means v+1-5 to the left
+        # the same for the other grouped actions 
+        #it is stated that it is 0->10 because the expected width is 10 
+        is_right=True
+        rotations =action//(self.width+1)
+        translations =action%(self.width+1)
+        if translations>self.width//2:
+            is_right=False
+            translations-=self.width//2
+        
+        if rotations>0:
+            self._rotate_grouped_action(rotations)
+        if translations>0:    
+            self._translate_grouped_action(translations,is_right)
+        
+        
+        
+    
+        self.shape, self.anchor = hard_drop(self.shape, self.anchor, self.board)
+        
+    def step(self, action):
+        
+        
+       
+        self._exec_grouped_actions(action)
         # Update time and reward
         self.time += 1
-        self.valid_action_count()
+#         self.valid_action_count()
         reward=0
         #reward = 1
 
@@ -191,6 +250,7 @@ class TetrisEngine:
                 reward-=10 # Penalty for losing
             else:
                 self._new_piece()
+                
 
         self._set_piece(True)
         state = np.copy(self.board)
@@ -230,13 +290,13 @@ class TetrisEngine:
     # ADDED Functions
     #Modification   
     def random_action(self):
-        return int(np.random.random()*len(self.value_action_map))
+        return int(np.random.random()*self.group_actions_number)
     
     def number_actions(self):
-        return len(self.action_value_map)
+        return self.group_actions_number
     
     def env_shape(self):
-        return [1,self.width,self.height]
+        return [self.width,self.height]
     
     
     
@@ -248,31 +308,41 @@ class TetrisEngine:
         #    Patrick Thiam, Viktor Kessler, and Friedhelm Schwenker
         # The Dellacherie features can be found in that paper ->Fahey, C. P. (2003). Tetris AI, Computer plays Tetris
         
-        # The chosen features would be only qu,avg,holes,wells 
+        # The chosen features would be only qu,avg,holes,wells,maxh
         state=np.copy(self.board).T
-        row_trans=0
-        col_trans=0
+
         holes=0
         wells=0
-        
-        
-        for j in range(state.shape[1]):          
+        qu=0
+        avgh=0
+        maxh=0
+        heights=[]
+        prev_h=0
+        for j in range(state.shape[1]):
+            
+            well_depth=0
+            col=state[:,j]
+            arr_ind=np.where(col==1)[0]
+            col_height=0 if len(arr_ind)=0 else len(col)-arr_ind[0]
+            heights.append(col_height)
+            maxh=max(maxh,col_height)
+            if j>0:
+                qu+=(col_height-prev_h)**2
+            prev_h=col_height
             for i in range(state.shape[0]-1,0,-1):
-                if j>0:
-                    row_trans+=1 if state[i,j]!=state[i,j-1] else 0
-                col_trans+=1 if state[i,j]!=state[i-1,j] else 0 
                 holes+=1 if state[i,j]==0 and state[i-1,j]==1 else 0
                 if state[i,j]==0:
                     if j-1 <0 and state[i,j+1] or j+1 >=state.shape[1] and state[i,j-1] or state[i,j-1] and state[i,j+1]:
-                        wells+=1
+                        well_depth+=1
+                    else:
+                        wells+=(well_depth+1)*well_depth/2
+                        well_depth=0
+            wells+=(well_depth+1)*well_depth/2
+                
+                
                     
-#         print(f"row_trans={row_trans}\ncol_trans={col_trans}\nholes={holes}\nwells={wells}\nlanding_height={self.landing_height}\ncleared_lines={self.cleared_lines}")
-        estimated_evaluation= -4.500158825082766*self.landing_height\
-        +3.4181268101392694*self.cleared_lines\
-        -3.2178882868487753*row_trans\
-        -9.348695305445199*col_trans\
-        -7.899265427351652*holes\
-        -3.3855972247263626*wells  # These Values are estimated according to Particle Swarm optimization https://imake.ninja/el-tetris-an-improvement-on-pierre-dellacheries-algorithm/
+        avgh=np.mean(heights)
+        estimated_evaluation= -5*avgh - qu - 16*holes + 10*self.cleared_lines - wells
         return estimated_evaluation
                 
             
