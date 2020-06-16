@@ -1,1 +1,0 @@
-NN+Dellacherie+Schwenker
