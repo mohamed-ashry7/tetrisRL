@@ -10,7 +10,7 @@ import torch.nn as nn
 import time
 
 GAMMA = 0.99
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 REPLAY_SIZE = 10000
 REPLAY_START_SIZE = 10000
 LEARNING_RATE = 1e-4

@@ -247,8 +247,8 @@ class TetrisEngine:
         holes=0
         wells=0
         
-        
-        for j in range(state.shape[1]):          
+        for j in range(state.shape[1]):
+            well_depth=0
             for i in range(state.shape[0]-1,0,-1):
                 if j>0:
                     row_trans+=1 if state[i,j]!=state[i,j-1] else 0
@@ -256,11 +256,15 @@ class TetrisEngine:
                 holes+=1 if state[i,j]==0 and state[i-1,j]==1 else 0
                 if state[i,j]==0:
                     if j-1 <0 and state[i,j+1] or j+1 >=state.shape[1] and state[i,j-1] or state[i,j-1] and state[i,j+1]:
-                        wells+=1
+                        well_depth+=1
+                    else:
+                        wells+=(well_depth+1)*well_depth/2
+                        well_depth=0
+            wells+=(well_depth+1)*well_depth/2
                     
 #         print(f"row_trans={row_trans}\ncol_trans={col_trans}\nholes={holes}\nwells={wells}\nlanding_height={self.landing_height}\ncleared_lines={self.cleared_lines}")
         estimated_evaluation= -4.500158825082766*self.landing_height\
-        +3.4181268101392694*self.cleared_lines\
+        +3.4181268101392694*2*self.cleared_lines\
         -3.2178882868487753*row_trans\
         -9.348695305445199*col_trans\
         -7.899265427351652*holes\
