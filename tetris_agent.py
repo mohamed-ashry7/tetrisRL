@@ -112,7 +112,8 @@ if __name__=="__main__":
     parser.add_argument("--height",default=20,help="Board Height",action="store")
     parser.add_argument("--mode",default='train',help="Define the mode of the model play or train",action="store")
     parser.add_argument("--model",default=None,help="Model file to load",action='store')
-    
+    parser.add_argument("--model-dir",default=None,help="dir to save models at it",action='store')
+
     args=parser.parse_args()
     
     device=torch.device("cuda" if args.cuda else "cpu")
@@ -123,9 +124,10 @@ if __name__=="__main__":
     replay_buffer=ReplayBuffer(REPLAY_SIZE)
     print(net)
     agent=Agent(env,replay_buffer)
+    
 
-
-
+    model_path="./dqn_models_stats/" if args.model_dir==None else args.model_dir
+    
     if args.mode =='train':
         epsilon = EPSILON_START
         optimizer=torch.optim.Adam(net.parameters(),lr=LEARNING_RATE)
@@ -148,7 +150,7 @@ if __name__=="__main__":
                 print("%d: done %d games, reward %.3f, "
                 "eps %.2f, speed %.2f f/s" % (frame_idx, len(total_rewards), m_reward, epsilon,speed))
                 if best_m_reward is None or best_m_reward < m_reward:
-                    torch.save(net.state_dict(), "./dqn_models_stats/tetris_NN_Sch_Della-best_%.0f.dat" % m_reward)
+                    torch.save(net.state_dict(), f"{model_path}tetris_best_%.3f.dat" % m_reward)
                     if best_m_reward is not None:
                         print("Best reward updated %.3f -> %.3f" % (
                         best_m_reward, m_reward))
