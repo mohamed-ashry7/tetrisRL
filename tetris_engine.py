@@ -3,81 +3,16 @@
 
 
 # This File is Originally taken from https://github.com/jaybutera/tetrisRL. 
-# There are some modification to this environment to be fine the model chosen.
+# There are some modification to this environment to be fine with the model chosen.
 
 import numpy as np
 import random
-
-shapes = {
-    'T': [(0, 0), (-1, 0), (1, 0), (0, -1)],
-    'J': [(0, 0), (-1, 0), (0, -1), (0, -2)],
-    'L': [(0, 0), (1, 0), (0, -1), (0, -2)],
-    'Z': [(0, 0), (-1, 0), (0, -1), (1, -1)],
-    'S': [(0, 0), (-1, -1), (0, -1), (1, 0)],
-    'I': [(0, 0), (0, -1), (0, -2), (0, -3)],
-    'O': [(0, 0), (0, -1), (-1, 0), (-1, -1)],
-}
-shape_names = ['T', 'J', 'L', 'Z', 'S', 'I', 'O']
-
-
-def rotated(shape, cclk=False):
-    if cclk:
-        return [(-j, i) for i, j in shape]
-    else:
-        return [(j, -i) for i, j in shape]
-
-
-def is_occupied(shape, anchor, board,h=False):
-    for i, j in shape:
-        x, y = anchor[0] + i, anchor[1] + j
-        if y < 0:
-            continue
-        if x < 0 or x >= board.shape[0] or y >= board.shape[1] or board[x, y]:
-            if h:
-                return True, max(board.shape[1]-y,0)
-            return True
-    if h:
-        return False,None
-    return False
-
-
-def left(shape, anchor, board):
-    new_anchor = (anchor[0] - 1, anchor[1])
-    return (shape, anchor) if is_occupied(shape, new_anchor, board) else (shape, new_anchor)
-
-
-def right(shape, anchor, board):
-    new_anchor = (anchor[0] + 1, anchor[1])
-    return (shape, anchor) if is_occupied(shape, new_anchor, board) else (shape, new_anchor)
-
-
-def soft_drop(shape, anchor, board):
-    new_anchor = (anchor[0], anchor[1] + 1)
-    return (shape, anchor) if is_occupied(shape, new_anchor, board) else (shape, new_anchor)
-
-
-def hard_drop(shape, anchor, board):
-    while True:
-        _, anchor_new = soft_drop(shape, anchor, board)
-        if anchor_new == anchor:
-            return shape, anchor_new
-        anchor = anchor_new
-
-
-def rotate_left(shape, anchor, board):
-    new_shape = rotated(shape, cclk=False)
-    return (shape, anchor) if is_occupied(new_shape, anchor, board) else (new_shape, anchor)
-
-
-def rotate_right(shape, anchor, board):
-    new_shape = rotated(shape, cclk=True)
-    return (shape, anchor) if is_occupied(new_shape, anchor, board) else (new_shape, anchor)
-
-def idle(shape, anchor, board):
-    return (shape, anchor)
+from controllers import basic_evaluation_fn
+from utils.tetris_engine_utils import *
 
 
 class TetrisEngine:
+
     def __init__(self, width, height):
         self.width = width
         self.height = height
@@ -95,21 +30,26 @@ class TetrisEngine:
         }
         self.action_value_map = dict([(j, i) for i, j in self.value_action_map.items()])
         self.nb_actions = len(self.value_action_map)
-
+        
+        
+        
+        self.group_actions_number=4*(self.width) # Means that there are 4 possible rotations and width-number of translations +1 for idle translations
+        
         # for running the engine
         self.time = -1
         self.score = -1
         self.anchor = None
         self.shape = None
-        self.n_deaths = 0
         
         self.prev_state_evaluation=0
         self.landing_height=None
         self.cleared_lines=0
-        
+        self.cleared_lines_per_move=0
         # used for generating shapes
         self._shape_counts = [0] * len(shapes)
-
+        
+        self.piece_number=None
+        self.tetrominos=0
         # clear after initializing
         self.clear()
     
@@ -123,19 +63,28 @@ class TetrisEngine:
             r -= n
             if r <= 0:
                 self._shape_counts[i] += 1
+                self.piece_number=i
                 return shapes[shape_names[i]]
 
     def _new_piece(self):
         # Place randomly on x-axis with 2 tiles padding
         #x = int((self.width/2+1) * np.random.rand(1,1)[0,0]) + 2
-        self.anchor = (self.width / 2, 0)
+        self.tetrominos+=1
+        self.anchor = (self.width //2, 0)
         #self.anchor = (x, 0)
         self.shape = self._choose_shape()
+        self.shape, self.anchor = soft_drop(self.shape, self.anchor, self.board)
 
+        
+    # Modification
+    
+    
     def _has_dropped(self):
         is_occ,self.landing_height=is_occupied(self.shape, (self.anchor[0], self.anchor[1] + 1), self.board,h=True)
         return is_occ
-
+    
+    
+    #Modification
     def _clear_lines(self):
         can_clear = [np.all(self.board[:, i]) for i in range(self.height)]
         new_board = np.zeros_like(self.board)
@@ -146,70 +95,132 @@ class TetrisEngine:
                 j -= 1
         self.score += sum(can_clear)
         self.board = new_board
+        self.cleared_lines_per_move=sum(can_clear)
+        self.cleared_lines += sum(can_clear)
 
-        self.cleared_lines+= sum(can_clear)
 
-    def valid_action_count(self):
-        valid_action_sum = 0
+    #Modification
+    
+    #Modification
+    
+    def _rotate_grouped_action(self,rotations):
+        action_taken =5 if rotations==1 else 4
+        
+        self.anchor = (int(self.anchor[0]), int(self.anchor[1]))
+        self.shape, self.anchor = self.value_action_map[action_taken](self.shape, self.anchor, self.board)
+        
+        if rotations==3:# face up so that means 2 rotate_left or 2 rotate_right
+            self.anchor = (int(self.anchor[0]), int(self.anchor[1]))
+            self.shape, self.anchor = self.value_action_map[action_taken](self.shape, self.anchor, self.board)
+    
+    def _translate_grouped_action(self,translations,is_right):
+        action_taken=1 if is_right else 0
+        for _ in range(translations):
+            self.anchor = (int(self.anchor[0]), int(self.anchor[1]))
+            self.shape, self.anchor = self.value_action_map[action_taken](self.shape, self.anchor, self.board)
+    
+    
+    def _exec_grouped_actions(self,action):
+        
+        
+        #Basic Actions
+        #0: left,
+        #1: right,
+        #2: hard_drop,
+        #3: soft_drop,
+        #4: rotate_left,
+        #5: rotate_right,
+        #6: idle,
+        
+        #0->10  idle, for all v in first five values means move v+1 to the right and the last 5 moves means v+1-5 to the left
+        # the same for the other grouped actions 
+        #it is stated that it is 0->10 because the expected width is 10 
+        is_right=False
+        rotations =action//(self.width)
+        translations =action%(self.width)
+        if translations>=self.width//2:
+            is_right=True
+            translations-=self.width//2
+        else:
+            translations=self.width//2 - translations
+        
+        if rotations>0:
+            self._rotate_grouped_action(rotations)
+        if translations>0:    
+            self._translate_grouped_action(translations,is_right)
+        
+        self.shape, self.anchor = hard_drop(self.shape, self.anchor, self.board)
 
-        for value, fn in self.value_action_map.items():
-            # If they're equal, it is not a valid action
-            if fn(self.shape, self.anchor, self.board) != (self.shape, self.anchor):
-                valid_action_sum += 1
+    
+   
+    def calc_state(self):
+        
 
-        return valid_action_sum
+        _,holes,qu,col_heights=basic_evaluation_fn(self,'schwenker',False)
+        diffs=[col_heights[i]-col_heights[i-1] for i in range(1,len(col_heights))]
+        state=np.copy(diffs)
+        state=np.append(state,holes)
+        state=np.append(state,qu)
+        state=np.append(state,self.piece_number)
+
+        return state
+    
     
     def sigmoid(self,r):
-        r/=50 
-        return (1/(1+np.exp(-r))-0.5)*2
+        # r/=25 
+        # return (1/(1+np.exp(-r))-0.5)*10
+        return r/15
+
+
+    def calc_reward(self):
+        
+        state_evaluation= self.calc_state_evaluation()
+        reward=state_evaluation-self.prev_state_evaluation 
+        self.prev_state_evaluation=state_evaluation
+        return reward
+    
     
     def step(self, action):
-        self.anchor = (int(self.anchor[0]), int(self.anchor[1]))
-        self.shape, self.anchor = self.value_action_map[action](self.shape, self.anchor, self.board)
-        # Drop each step
-        self.shape, self.anchor = soft_drop(self.shape, self.anchor, self.board)
-
+        
+        
+       
+        self._exec_grouped_actions(action)
+        
         # Update time and reward
         self.time += 1
-        self.valid_action_count()
         reward=0
-        #reward = 1
 
         done = False
-        
         if self._has_dropped():
             
             self._set_piece(True)
             self._clear_lines()
-            state_evaluation= self.calc_state_evaluation()
-            reward=state_evaluation-self.prev_state_evaluation
-            self.prev_state_evaluation=state_evaluation
+            state = self.calc_state()
             if np.any(self.board[:, 0]):
-                self.clear()
-                self.n_deaths += 1
                 done = True
-                reward-=10 # Penalty for losing
             else:
                 self._new_piece()
+            self._set_piece(False)
 
-        self._set_piece(True)
-        state = np.copy(self.board)
-        self._set_piece(False)
+        
         #calcualte the Reward based on the Evaluation of the states. 
         
         
-        
-        return state, self.sigmoid(reward), done
+        reward = -1 if done else self.calc_reward() 
+        return state, round(reward,3), done
 
     def clear(self):
         self.time = 0
         self.score = 0
         self._new_piece()
         self.board = np.zeros_like(self.board)
+        #Modification
         self.prev_state_evaluation=0
         self.landing_height=None
         self.cleared_lines=0
-        return self.board
+        self.cleared_lines_per_move=0
+        self.tetrominos=0
+        return self.calc_state()
 
     def _set_piece(self, on=False):
         for i, j in self.shape:
@@ -227,44 +238,35 @@ class TetrisEngine:
     
     
     # ADDED Functions
-        
+    #Modification   
     def random_action(self):
-        return int(np.random.random()*len(self.value_action_map))
+        return int(np.random.random()*self.group_actions_number)
     
     def number_actions(self):
-        return len(self.action_value_map)
+        return self.group_actions_number
     
-    def env_shape(self):
-        return [1,self.width,self.height]
+    def state_shape(self):
+        return np.prod(self.calc_state().shape)
     
     
     
     def calc_state_evaluation(self):
         
-        state=np.copy(self.board).T
-        row_trans=0
-        col_trans=0
-        holes=0
-        wells=0
+        return basic_evaluation_fn(self,'near')
         
-        
-        for j in range(state.shape[1]):          
-            for i in range(state.shape[0]-1,0,-1):
-                if j>0:
-                    row_trans+=1 if state[i,j]!=state[i,j-1] else 0
-                col_trans+=1 if state[i,j]!=state[i-1,j] else 0 
-                holes+=1 if state[i,j]==0 and state[i-1,j]==1 else 0
-                if state[i,j]==0:
-                    if j-1 <0 and state[i,j+1] or j+1 >=state.shape[1] and state[i,j-1] or state[i,j-1] and state[i,j+1]:
-                        wells+=1
-                    
-#         print(f"row_trans={row_trans}\ncol_trans={col_trans}\nholes={holes}\nwells={wells}\nlanding_height={self.landing_height}\ncleared_lines={self.cleared_lines}")
-        estimated_evaluation= -4.500158825082766*self.landing_height\
-        +3.4181268101392694*self.cleared_lines\
-        -3.2178882868487753*row_trans\
-        -9.348695305445199*col_trans\
-        -7.899265427351652*holes\
-        -3.3855972247263626*wells  # These Values are estimated according to Particle Swarm optimization https://imake.ninja/el-tetris-an-improvement-on-pierre-dellacheries-algorithm/
-        return estimated_evaluation
                 
-            
+
+
+# if __name__ == '__main__':
+#     env = TetrisEngine(10,20)
+#     while True:
+#         action =np.random.randint(0,40)
+#         state , reward, done = env.step(action)
+#         print(env)
+#         print(f"Reward {reward} , state{state}, Action {action},Lines {env.cleared_lines}")
+#         if done:
+#             if env.cleared_lines>0:
+#                 break
+#             else:
+#                 env.clear()
+
