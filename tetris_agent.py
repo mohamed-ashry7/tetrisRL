@@ -1,5 +1,4 @@
 from dqn_model import DQN
-
 from tetris_engine import TetrisEngine
 import collections
 from collections import namedtuple
@@ -9,7 +8,7 @@ import torch
 import torch.nn as nn
 import time
 import matplotlib.pyplot as plt 
-
+from utils.drawing_utils import *
 
 GAMMA = 0.99
 BATCH_SIZE = 360
@@ -22,25 +21,8 @@ EPSILON_DECAY_LAST_FRAME = 150000
 EPSILON_START = 1.0
 EPSILON_FINAL = 0.01
 DRAWING_RATE=25000
-
 Experience=namedtuple('Experience',field_names=['state','action','reward','done','next_state'])
-class ReplayBuffer:
-    def __init__(self,size):
-        self.buffer=collections.deque(maxlen=size)
-    
-    def __len__(self):
-        return len(self.buffer)
-    
-    
-    
-    def append(self,exp):
-        self.buffer.append(exp)
-        
-    def sample(self,batch_size):
-        indices = np.random.choice(len(self.buffer),batch_size,replace=False)
-        states, actions, rewards, dones, next_states = zip(*[self.buffer[idx] for idx in indices])
-        return np.array(states), np.array(actions), np.array(rewards, dtype=np.float32), np.array(dones, dtype=np.uint8), np.array(next_states)  
-        
+
         
         
 class Agent():
@@ -119,21 +101,6 @@ class Agent():
 
 
 if __name__=="__main__":
-    def plot_data(path,data,label,games_number):
-        print('Graph HAAAAAAAAAAAAAASS BEEEEEENNN DRAAAWWWWNNNN')
-        colors ={
-            'Q':'#33BEFF',
-            'R':'#139C3E',
-            'T':'#9C133A',
-            'C':'#7CB1C5'
-        }
-        plt.plot(data,label=f'label of {games_number} games',color=colors[label[0]])
-        plt.xlabel("Number of games")
-        plt.ylabel(f'Mean {label}')
-        plt.savefig(path)
-        plt.close()
-        
-        
         
     parser=argparse.ArgumentParser()
     parser.add_argument("--cuda",default=False,help="Enable cuda",action="store_true")

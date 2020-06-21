@@ -1,4 +1,3 @@
-from tetris_engine import TetrisEngine
 import numpy as np
 import copy 
 
@@ -10,7 +9,8 @@ import copy
 
 
 
-def basic_evaluation_fn(state,controller,abs_value=False):
+def basic_evaluation_fn(env,controller,abs_value=True):
+    state=np.copy(env.board).T
     holes=0
     wells=0
     col_heights=[]
@@ -35,7 +35,7 @@ def basic_evaluation_fn(state,controller,abs_value=False):
         # These feature came from [2]
         avgh= np.mean(col_heights)
         qu =sum([(col_heights[i]-col_heights[i-1])**2 for i in range(1,len(col_heights))])
-        return -5*avgh-16*holes-qu if abs_value else (avgh,holes,qu)
+        return -5*avgh-16*holes-qu if abs_value else (avgh,holes,qu,col_heights)
     elif controller=='near':
         # These features came from [1]
         agg_height=sum(col_heights)
@@ -55,7 +55,7 @@ def best_action(env,controller):
         dumm = copy.deepcopy(env)
         dumm.step(action)
 
-        value = basic_evaluation_fn(dumm.board.T,controller,True)
+        value = basic_evaluation_fn(dumm,controller,True)
         if evaluation==None or evaluation<value:
             evaluation=value
             action_chosen=action

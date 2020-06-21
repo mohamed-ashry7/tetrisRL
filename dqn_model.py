@@ -10,7 +10,6 @@ class DQN(nn.Module):
     def __init__(self,input_shape,number_actions):
         super(DQN,self).__init__()
         self.input_shape=input_shape
-        
         self.fc_layers=nn.Sequential(
             nn.Linear(input_shape, 256),
             nn.BatchNorm1d(256),
@@ -37,11 +36,9 @@ class DQN(nn.Module):
 
         
     
-    def flat_features_number(self,x):
-        features_size=x.size()[1:]
-        return np.prod(features_size)
+    # def flat_features_number(self,x):
+    #     features_size=x.size()[1:]
+    #     return np.prod(features_size)
     
     def forward(self,x):
-        print (self.flat_features_number(x))
-        print(self.input_shape)
-        return self.fc_layers(x.view(-1,self.flat_features_number(x)))
+        return self.fc_layers(x.view(-1,self.input_shape))

@@ -3,78 +3,12 @@
 
 
 # This File is Originally taken from https://github.com/jaybutera/tetrisRL. 
-# There are some modification to this environment to be fine the model chosen.
+# There are some modification to this environment to be fine with the model chosen.
 
 import numpy as np
 import random
-
-shapes = {
-    'T': [(0, 0), (-1, 0), (1, 0), (0, -1)],
-    'J': [(0, 0), (-1, 0), (0, -1), (0, -2)],
-    'L': [(0, 0), (1, 0), (0, -1), (0, -2)],
-    'Z': [(0, 0), (-1, 0), (0, -1), (1, -1)],
-    'S': [(0, 0), (-1, -1), (0, -1), (1, 0)],
-    'I': [(0, 0), (0, -1), (0, -2), (0, -3)],
-    'O': [(0, 0), (0, -1), (-1, 0), (-1, -1)],
-}
-shape_names = ['T', 'J', 'L', 'Z', 'S', 'I', 'O']
-
-
-def rotated(shape, cclk=False):
-    if cclk:
-        return [(-j, i) for i, j in shape]
-    else:
-        return [(j, -i) for i, j in shape]
-
-
-def is_occupied(shape, anchor, board,h=False):
-    for i, j in shape:
-        x, y = anchor[0] + i, anchor[1] + j
-        if y < 0:
-            continue
-        if x < 0 or x >= board.shape[0] or y >= board.shape[1] or board[x, y]:
-            if h:
-                return True, max(board.shape[1]-y,0)
-            return True
-    if h:
-        return False,None
-    return False
-
-
-def left(shape, anchor, board):
-    new_anchor = (anchor[0] - 1, anchor[1])
-    return (shape, anchor) if is_occupied(shape, new_anchor, board) else (shape, new_anchor)
-
-
-def right(shape, anchor, board):
-    new_anchor = (anchor[0] + 1, anchor[1])
-    return (shape, anchor) if is_occupied(shape, new_anchor, board) else (shape, new_anchor)
-
-
-def soft_drop(shape, anchor, board):
-    new_anchor = (anchor[0], anchor[1] + 1)
-    return (shape, anchor) if is_occupied(shape, new_anchor, board) else (shape, new_anchor)
-
-
-def hard_drop(shape, anchor, board):
-    while True:
-        _, anchor_new = soft_drop(shape, anchor, board)
-        if anchor_new == anchor:
-            return shape, anchor_new
-        anchor = anchor_new
-
-
-def rotate_left(shape, anchor, board):
-    new_shape = rotated(shape, cclk=False)
-    return (shape, anchor) if is_occupied(new_shape, anchor, board) else (new_shape, anchor)
-
-
-def rotate_right(shape, anchor, board):
-    new_shape = rotated(shape, cclk=True)
-    return (shape, anchor) if is_occupied(new_shape, anchor, board) else (new_shape, anchor)
-
-def idle(shape, anchor, board):
-    return (shape, anchor)
+from controllers import basic_evaluation_fn
+from utils.tetris_engine_utils import *
 
 
 class TetrisEngine:
@@ -220,66 +154,15 @@ class TetrisEngine:
     
    
     def calc_state(self):
-        # state= np.copy(self.board).T
-        # prev_height=0
-        # col_heights =[]
-        # edge=3
-        # for j in range(state.shape[1]):
-        #     col=state[:,j]
-        #     arr_ind=np.where(col==1)[0]
-        #     col_height=0 if len(arr_ind)==0 else len(col)-arr_ind[0]
-        #     diff =col_height-prev_height
-        #     if diff>edge:
-        #         diff=edge
-        #     elif diff < -edge:
-        #         diff=-edge
-        #     if j>0:
-        #         col_heights.append(diff)
-        #     prev_height=col_height
-            
         
-        
-        # col_heights.append(self.piece_number)
 
-        state=np.copy(self.board).T
-
-        self.holes=0
-        self.wells=0
-        self.qu=0
-        avgh=0
-        maxh=0
-        self.col_heights=[]
-        prev_h=0
-        for j in range(state.shape[1]):
-            
-            well_depth=0
-            col=state[:,j]
-            arr_ind=np.where(col==1)[0]
-            col_height=0 if len(arr_ind)==0 else len(col)-arr_ind[0]
-            self.col_heights.append(col_height)
-            if j>0:
-                self.qu+=(col_height-prev_h)**2
-            prev_h=col_height
-            for i in range(state.shape[0]-1,0,-1):
-                self.holes+=1 if state[i,j]==0 and state[i-1,j]==1 else 0
-                if state[i,j]==0:
-                    if j-1 <0 and state[i,j+1] or j+1 >=state.shape[1] and state[i,j-1] or state[i,j-1] and state[i,j+1]:
-                        well_depth+=1
-                    else:
-                        self.wells+=(well_depth+1)*well_depth/2
-                        well_depth=0
-            self.wells+=(well_depth+1)*well_depth/2
-
-
-        avgh=np.mean(self.col_heights)
-        maxh=max(self.col_heights)
-        diffs=[self.col_heights[i]-self.col_heights[i-1] for i in range(1,len(self.col_heights))]
-        
+        _,holes,qu,col_heights=basic_evaluation_fn(self,'schwenker',False)
+        diffs=[col_heights[i]-col_heights[i-1] for i in range(1,len(col_heights))]
         state=np.copy(diffs)
-        state=np.append(state,self.holes)
-        state=np.append(state,self.qu)
-        # state=np.append(state,self.wells)
+        state=np.append(state,holes)
+        state=np.append(state,qu)
         state=np.append(state,self.piece_number)
+
         return state
     
     
@@ -287,10 +170,12 @@ class TetrisEngine:
         # r/=25 
         # return (1/(1+np.exp(-r))-0.5)*10
         return r/15
+
+
     def calc_reward(self):
         
         state_evaluation= self.calc_state_evaluation()
-        reward=state_evaluation-self.prev_state_evaluation + self.tetrominos + 30*self.cleared_lines_per_move
+        reward=state_evaluation-self.prev_state_evaluation 
         self.prev_state_evaluation=state_evaluation
         return reward
     
@@ -366,20 +251,9 @@ class TetrisEngine:
     
     
     def calc_state_evaluation(self):
-        # This Function is based on the features of Dr. Schwenker and Dellachereie
-        #Schwenker Features are average height->avgh , holes -> holes, maximum height->maxh, Quadratic UnEvenness ->qu
-        #You can review the paper that discusses this feature 
-        # "A Reinforcement Learning Algorithm to Train a Tetris Playing Agent"
-        #    Patrick Thiam, Viktor Kessler, and Friedhelm Schwenker
-        # The Dellacherie features can be found in that paper ->Fahey, C. P. (2003). Tetris AI, Computer plays Tetris
         
-        # The chosen features would be only qu,avg,holes,wells,maxh
+        return basic_evaluation_fn(self,'near')
         
-                
-        avgh=np.mean(self.col_heights)
-                    
-        estimated_evaluation= -5*avgh - self.qu - 16*self.holes
-        return self.sigmoid(estimated_evaluation)
                 
 
 
