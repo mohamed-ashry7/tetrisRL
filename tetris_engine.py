@@ -78,6 +78,7 @@ def idle(shape, anchor, board):
 
 
 class TetrisEngine:
+
     def __init__(self, width, height):
         self.width = width
         self.height = height
@@ -98,24 +99,23 @@ class TetrisEngine:
         
         
         
-        self.group_actions_number=4*(self.width+1) # Means that there are 4 possible rotations and width-number of translations +1 for idle translations
+        self.group_actions_number=4*(self.width) # Means that there are 4 possible rotations and width-number of translations +1 for idle translations
         
         # for running the engine
         self.time = -1
         self.score = -1
         self.anchor = None
         self.shape = None
-        self.n_deaths = 0
         
         self.prev_state_evaluation=0
         self.landing_height=None
         self.cleared_lines=0
-        
+        self.cleared_lines_per_move=0
         # used for generating shapes
         self._shape_counts = [0] * len(shapes)
         
-        
-        self.maxh=0
+        self.piece_number=None
+        self.tetrominos=0
         # clear after initializing
         self.clear()
     
@@ -129,11 +129,13 @@ class TetrisEngine:
             r -= n
             if r <= 0:
                 self._shape_counts[i] += 1
+                self.piece_number=i
                 return shapes[shape_names[i]]
 
     def _new_piece(self):
         # Place randomly on x-axis with 2 tiles padding
         #x = int((self.width/2+1) * np.random.rand(1,1)[0,0]) + 2
+        self.tetrominos+=1
         self.anchor = (self.width //2, 0)
         #self.anchor = (x, 0)
         self.shape = self._choose_shape()
@@ -159,16 +161,12 @@ class TetrisEngine:
                 j -= 1
         self.score += sum(can_clear)
         self.board = new_board
-        if sum(can_clear)>0:
-            print(self)
-            print("LINEEEEEEEEEE CLEAREEEEEEEEEEEEEEEEDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD!!!!!!!!!!!!!!")
-        self.cleared_lines+= sum(can_clear)
+        self.cleared_lines_per_move=sum(can_clear)
+        self.cleared_lines += sum(can_clear)
 
 
     #Modification
-    def sigmoid(self,r):
-        r/=50 
-        return (1/(1+np.exp(-r))-0.5)*2
+    
     #Modification
     
     def _rotate_grouped_action(self,rotations):
@@ -203,12 +201,14 @@ class TetrisEngine:
         #0->10  idle, for all v in first five values means move v+1 to the right and the last 5 moves means v+1-5 to the left
         # the same for the other grouped actions 
         #it is stated that it is 0->10 because the expected width is 10 
-        is_right=True
-        rotations =action//(self.width+1)
-        translations =action%(self.width+1)
-        if translations>self.width//2:
-            is_right=False
+        is_right=False
+        rotations =action//(self.width)
+        translations =action%(self.width)
+        if translations>=self.width//2:
+            is_right=True
             translations-=self.width//2
+        else:
+            translations=self.width//2 - translations
         
         if rotations>0:
             self._rotate_grouped_action(rotations)
@@ -216,45 +216,113 @@ class TetrisEngine:
             self._translate_grouped_action(translations,is_right)
         
         self.shape, self.anchor = hard_drop(self.shape, self.anchor, self.board)
-        for _ in range (2):# soft drop because the last action would be always hard_drop so we would want to see the piece
-            self.shape, self.anchor = soft_drop(self.shape, self.anchor, self.board)
 
+    
+   
+    def calc_state(self):
+        # state= np.copy(self.board).T
+        # prev_height=0
+        # col_heights =[]
+        # edge=3
+        # for j in range(state.shape[1]):
+        #     col=state[:,j]
+        #     arr_ind=np.where(col==1)[0]
+        #     col_height=0 if len(arr_ind)==0 else len(col)-arr_ind[0]
+        #     diff =col_height-prev_height
+        #     if diff>edge:
+        #         diff=edge
+        #     elif diff < -edge:
+        #         diff=-edge
+        #     if j>0:
+        #         col_heights.append(diff)
+        #     prev_height=col_height
+            
+        
+        
+        # col_heights.append(self.piece_number)
+
+        state=np.copy(self.board).T
+
+        self.holes=0
+        self.wells=0
+        self.qu=0
+        avgh=0
+        maxh=0
+        self.col_heights=[]
+        prev_h=0
+        for j in range(state.shape[1]):
+            
+            well_depth=0
+            col=state[:,j]
+            arr_ind=np.where(col==1)[0]
+            col_height=0 if len(arr_ind)==0 else len(col)-arr_ind[0]
+            self.col_heights.append(col_height)
+            if j>0:
+                self.qu+=(col_height-prev_h)**2
+            prev_h=col_height
+            for i in range(state.shape[0]-1,0,-1):
+                self.holes+=1 if state[i,j]==0 and state[i-1,j]==1 else 0
+                if state[i,j]==0:
+                    if j-1 <0 and state[i,j+1] or j+1 >=state.shape[1] and state[i,j-1] or state[i,j-1] and state[i,j+1]:
+                        well_depth+=1
+                    else:
+                        self.wells+=(well_depth+1)*well_depth/2
+                        well_depth=0
+            self.wells+=(well_depth+1)*well_depth/2
+
+
+        avgh=np.mean(self.col_heights)
+        maxh=max(self.col_heights)
+        diffs=[self.col_heights[i]-self.col_heights[i-1] for i in range(1,len(self.col_heights))]
+        
+        state=np.copy(diffs)
+        state=np.append(state,self.holes)
+        state=np.append(state,self.qu)
+        # state=np.append(state,self.wells)
+        state=np.append(state,self.piece_number)
+        return state
+    
+    
+    def sigmoid(self,r):
+        # r/=25 
+        # return (1/(1+np.exp(-r))-0.5)*10
+        return r/15
+    def calc_reward(self):
+        
+        state_evaluation= self.calc_state_evaluation()
+        reward=state_evaluation-self.prev_state_evaluation + self.tetrominos + 30*self.cleared_lines_per_move
+        self.prev_state_evaluation=state_evaluation
+        return reward
+    
+    
     def step(self, action):
         
         
        
         self._exec_grouped_actions(action)
+        
         # Update time and reward
         self.time += 1
         reward=0
-        #reward = 1
 
         done = False
-        
         if self._has_dropped():
             
             self._set_piece(True)
             self._clear_lines()
-            state_evaluation= self.calc_state_evaluation()
-            reward=state_evaluation-self.prev_state_evaluation
-            self.prev_state_evaluation=state_evaluation
+            state = self.calc_state()
             if np.any(self.board[:, 0]):
-                self.clear()
-                self.n_deaths += 1
                 done = True
-                reward-=10 # Penalty for losing
             else:
                 self._new_piece()
-                
+            self._set_piece(False)
 
-        self._set_piece(True)
-        state = np.copy(self.board)
-        self._set_piece(False)
+        
         #calcualte the Reward based on the Evaluation of the states. 
         
         
-        
-        return state, self.sigmoid(reward), done
+        reward = -1 if done else self.calc_reward() 
+        return state, round(reward,3), done
 
     def clear(self):
         self.time = 0
@@ -265,7 +333,9 @@ class TetrisEngine:
         self.prev_state_evaluation=0
         self.landing_height=None
         self.cleared_lines=0
-        return self.board
+        self.cleared_lines_per_move=0
+        self.tetrominos=0
+        return self.calc_state()
 
     def _set_piece(self, on=False):
         for i, j in self.shape:
@@ -274,7 +344,6 @@ class TetrisEngine:
                 self.board[int(self.anchor[0] + i), int(self.anchor[1] + j)] = on
 
     def __repr__(self):
-        print(self.maxh)
         self._set_piece(True)
         s = 'o' + '-' * self.width + 'o\n'
         s += '\n'.join(['|' + ''.join(['X' if j else ' ' for j in i]) + '|' for i in self.board.T])
@@ -291,8 +360,8 @@ class TetrisEngine:
     def number_actions(self):
         return self.group_actions_number
     
-    def env_shape(self):
-        return [self.width,self.height]
+    def state_shape(self):
+        return np.prod(self.calc_state().shape)
     
     
     
@@ -305,40 +374,25 @@ class TetrisEngine:
         # The Dellacherie features can be found in that paper ->Fahey, C. P. (2003). Tetris AI, Computer plays Tetris
         
         # The chosen features would be only qu,avg,holes,wells,maxh
-        state=np.copy(self.board).T
-
-        holes=0
-        wells=0
-        qu=0
-        avgh=0
-        self.maxh=0
-        heights=[]
-        prev_h=0
-        for j in range(state.shape[1]):
-            
-            well_depth=0
-            col=state[:,j]
-            arr_ind=np.where(col==1)[0]
-            col_height=0 if len(arr_ind)==0 else len(col)-arr_ind[0]
-            heights.append(col_height)
-            self.maxh=max(self.maxh,col_height)
-            if j>0:
-                qu+=(col_height-prev_h)**2
-            prev_h=col_height
-            for i in range(state.shape[0]-1,0,-1):
-                holes+=1 if state[i,j]==0 and state[i-1,j]==1 else 0
-                if state[i,j]==0:
-                    if j-1 <0 and state[i,j+1] or j+1 >=state.shape[1] and state[i,j-1] or state[i,j-1] and state[i,j+1]:
-                        well_depth+=1
-                    else:
-                        wells+=(well_depth+1)*well_depth/2
-                        well_depth=0
-            wells+=(well_depth+1)*well_depth/2
+        
                 
-                
+        avgh=np.mean(self.col_heights)
                     
-        avgh=np.mean(heights)
-        estimated_evaluation= -5*avgh - qu - 16*holes + 20*self.cleared_lines - wells - 6 * self.maxh
-        return estimated_evaluation
+        estimated_evaluation= -5*avgh - self.qu - 16*self.holes
+        return self.sigmoid(estimated_evaluation)
                 
-            
+
+
+# if __name__ == '__main__':
+#     env = TetrisEngine(10,20)
+#     while True:
+#         action =np.random.randint(0,40)
+#         state , reward, done = env.step(action)
+#         print(env)
+#         print(f"Reward {reward} , state{state}, Action {action},Lines {env.cleared_lines}")
+#         if done:
+#             if env.cleared_lines>0:
+#                 break
+#             else:
+#                 env.clear()
+
