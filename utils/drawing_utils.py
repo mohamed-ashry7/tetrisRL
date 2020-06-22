@@ -10,7 +10,7 @@ def plot_data(path,data,label,games_number):
         'T':'#9C133A',
         'C':'#7CB1C5'
     }
-    plt.plot(data,label=f'label of {games_number} games',color=colors[label[0]])
+    plt.plot(data,label=f'label of {games_number} games',color=colors.get(label[0],'black'))
     plt.xlabel("Number of games")
     plt.ylabel(label)
     plt.savefig(path)
