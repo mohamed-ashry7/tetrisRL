@@ -4,11 +4,6 @@ import copy
 
 
 
-
-
-
-
-
 def basic_evaluation_fn(env,controller,abs_value=True):
     state=np.copy(env.board).T
     holes=0
@@ -35,11 +30,10 @@ def basic_evaluation_fn(env,controller,abs_value=True):
                     well_depth=0
         wells+=(well_depth+1)*well_depth/2
     
-
+    qu =sum([(col_heights[i]-col_heights[i-1])**2 for i in range(1,len(col_heights))])
     if controller=='schwenker':
         # These feature came from [2]
         avgh= np.mean(col_heights)
-        qu =sum([(col_heights[i]-col_heights[i-1])**2 for i in range(1,len(col_heights))])
         return -5*avgh-16*holes-qu if abs_value else (avgh,holes,qu,col_heights)
     elif controller=='near':
         # These features came from [1]
@@ -48,11 +42,21 @@ def basic_evaluation_fn(env,controller,abs_value=True):
         bumpiness=sum([abs(col_heights[i]-col_heights[i-1]) for i in range(1,len(col_heights))])
         return -0.51*agg_height+0.76*complete_lines-0.36*holes-0.18*bumpiness if abs_value else (agg_height,complete_lines,holes,bumpiness)
     elif controller=='dellacherie':
-        estimated_evaluation= -env.landing_height+5*env.cleared_lines_per_move-row_trans\
+        estimated_evaluation= -env.landing_height+50*(env.cleared_lines_per_move)**2-row_trans\
             -col_trans-4*holes-wells
         return estimated_evaluation if abs_value else (row_trans,col_trans,holes,wells) # The reason that landing height and cleared lines are not returned,
                                                                                         # That they can be got from the env directly
-    else:
+    elif controller=='lundgaard':
+        avgh=sum(col_heights)//len(col_heights)
+        holes= holes//5 + 1 
+        if holes >5 :
+            holes = 5 
+        qu = qu//20+1
+        if qu>20:
+            qu=20
+        single_valley = 1 if wells>0 else 0 
+        return avgh,qu,single_valley,holes
+    else :
         return None
     
 

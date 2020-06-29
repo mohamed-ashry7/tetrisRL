@@ -17,7 +17,7 @@ if __name__ == '__main__':
     games=1
 while True: 
     t+=1
-    action = controllers.best_action(env,'near')
+    action = controllers.best_action(env,'dellacherie')
     _,_,done=env.step(action)
     if done:
         games+=1

@@ -15,3 +15,14 @@ def plot_data(path,data,label,games_number):
     plt.ylabel(label)
     plt.savefig(path)
     plt.close()
+
+
+
+def hist_data(path,data,label,bins=None):
+    if bins ==None:
+        bins= list(range(1,len(data)+1))
+    plt.hist(x=data,bins=bins,rwidth=0.5)
+    plt.xlabel(label)
+    plt.ylabel(f"Frequency of {label}")
+    plt.savefig(path)
+    plt.close()
