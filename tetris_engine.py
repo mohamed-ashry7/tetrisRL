@@ -14,8 +14,8 @@ from utils.tetris_engine_utils import *
 class TetrisEngine:
 
     def __init__(self, width, height):
-        self.width = width
-        self.height = height
+        self.width = int(width)
+        self.height = int(height)
         self.board = np.zeros(shape=(width, height), dtype=np.float)
 
         # actions are triggered by letters
@@ -33,7 +33,7 @@ class TetrisEngine:
         
         
         
-        self.group_actions_number=4*(self.width) # Means that there are 4 possible rotations and width-number of translations +1 for idle translations
+        self.group_actions_number=4*self.width # Means that there are 4 possible rotations and width-number of translations +1 for idle translations
         
         # for running the engine
         self.time = -1
@@ -156,12 +156,14 @@ class TetrisEngine:
     def calc_state(self):
         
 
-        _,holes,qu,col_heights=basic_evaluation_fn(self,'schwenker',False)
-        diffs=[col_heights[i]-col_heights[i-1] for i in range(1,len(col_heights))]
-        state=np.copy(diffs)
-        state=np.append(state,holes)
-        state=np.append(state,qu)
+        avgh,qu,single_valley,holes=basic_evaluation_fn(self,'lundgaard',False)
+        state=np.array([])
         state=np.append(state,self.piece_number)
+        state=np.append(state,avgh)
+        state=np.append(state,qu)
+        state=np.append(state,single_valley)
+        state=np.append(state,holes)
+        
 
         return state
     
@@ -259,14 +261,20 @@ class TetrisEngine:
 
 # if __name__ == '__main__':
 #     env = TetrisEngine(10,20)
-#     while True:
-#         action =np.random.randint(0,40)
-#         state , reward, done = env.step(action)
+
+#     for a in range(40):
+#         s,_,_=env.step(a)
 #         print(env)
-#         print(f"Reward {reward} , state{state}, Action {action},Lines {env.cleared_lines}")
-#         if done:
-#             if env.cleared_lines>0:
-#                 break
-#             else:
-#                 env.clear()
+#         print(s)
+#         env.clear()
+    # while True:
+    #     action =np.random.randint(0,40)
+    #     state , reward, done = env.step(action)
+    #     print(env)
+    #     print(f"Reward {reward} , state{state}, Action {action},Lines {env.cleared_lines}")
+    #     if done:
+    #         if env.cleared_lines>0:
+    #             break
+    #         else:
+    #             env.clear()
 
