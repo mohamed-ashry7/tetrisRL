@@ -4,7 +4,17 @@ import copy
 
 
 
-def basic_evaluation_fn(env,controller,abs_value=True):
+def _calc_contour(col_heights,clamp_diff):
+    diffs =[]
+    for i in range(1,len(col_heights)):
+        d= col_heights[i]-col_heights[i-1]
+        if d>clamp_diff:
+            d=clamp_diff
+        elif d<-clamp_diff:
+            d=-clamp_diff
+        diffs.append(d)
+    return diffs
+def basic_evaluation_fn(env,controller,abs_value=True,clamp_diff=4):
     state=np.copy(env.board).T
     holes=0
     wells=0
@@ -35,6 +45,7 @@ def basic_evaluation_fn(env,controller,abs_value=True):
     avgh=sum(col_heights)//len(col_heights)
     agg_height=sum(col_heights)
     bumpiness=sum([abs(col_heights[i]-col_heights[i-1]) for i in range(1,len(col_heights))])
+    maxh=max(col_heights)
     if controller=='schwenker':
         # These feature came from [2]
         avgh= np.mean(col_heights)
@@ -70,6 +81,14 @@ def basic_evaluation_fn(env,controller,abs_value=True):
         return value_est
     elif controller=='ashry':
         return agg_height//4,int(avgh),qu//10,holes//2,bumpiness//2
+    elif controller=='ttl':
+        if 0<=maxh<=2:
+            return state[-2:,:].reshape(-1)
+        else:
+            return state[-maxh:2-maxh,:].reshape(-1)
+    elif controller=='contour':
+        diffs =_calc_contour(col_heights,clamp_diff)
+        return diffs
     else :
         return None
     

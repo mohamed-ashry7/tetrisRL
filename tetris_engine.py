@@ -157,11 +157,9 @@ class TetrisEngine:
     def calc_state(self):
         
 
-        agg_height,avgh,qu,holes,bumpiness=basic_evaluation_fn(self,'ashry',False)
+        state=basic_evaluation_fn(self,'ttl',False)
+        state=np.append(state,self.piece_number)
         
-        state =[agg_height,avgh,qu,holes,bumpiness,self.piece_number]
-        
-        state=np.array(state)
         return state
     
     
@@ -171,7 +169,7 @@ class TetrisEngine:
         tm=self.time
         if tm>5000:
             tm=5000
-        reward=state_evaluation-self.prev_state_evaluation +tm/50
+        reward=state_evaluation-self.prev_state_evaluation +tm/100
         self.prev_state_evaluation=state_evaluation
         return reward
     
@@ -259,12 +257,10 @@ class TetrisEngine:
 #     env = TetrisEngine(10,20)
 
 #     while True:
-#         _,_,d=env.step(best_action(env,'el-tetris'))
-#         if env.cleared_lines%201==0:
-#             print(env.cleared_lines)
+#         print (env.calc_state())
+#         _,_,d=env.step(env.random_action())
+#         print(env)
 #         if d==True:
-
-#             print(env.cleared_lines)
 #             break
     # for a in range(40):
     #     s,_,_=env.step(a)
