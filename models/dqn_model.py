@@ -14,31 +14,35 @@ class DQN(nn.Module):
         self.input_shape=input_shape
 
         self.common_layers=nn.Sequential(
-            NoisyLinear(input_shape, 47),
-            nn.BatchNorm1d(47),
+            NoisyLinear(input_shape, 150),
+            nn.BatchNorm1d(150),
             nn.LeakyReLU(),
             nn.Dropout(0.2),
-            NoisyLinear(47, 71),
-            nn.BatchNorm1d(71),
+            NoisyLinear(150, 100),
+            nn.BatchNorm1d(100),
+            nn.LeakyReLU(),
+            nn.Dropout(0.2),
+            NoisyLinear(100, 100),
+            nn.BatchNorm1d(100),
             nn.LeakyReLU(),
             nn.Dropout(0.2),
             
             
         )
         self.value_layers=nn.Sequential(
-            NoisyLinear(71, 87),
-            nn.BatchNorm1d(87),
+            NoisyLinear(100, 70),
+            nn.BatchNorm1d(70),
             nn.LeakyReLU(),
             nn.Dropout(0.2),
-            NoisyLinear(87, number_actions)
+            NoisyLinear(70, number_actions)
             
         )
         self.adv_layers=nn.Sequential(
-            NoisyLinear(71, 87),
-            nn.BatchNorm1d(87),
+            NoisyLinear(100, 50),
+            nn.BatchNorm1d(50),
             nn.LeakyReLU(),
             nn.Dropout(0.2),
-            NoisyLinear(87, 1)
+            NoisyLinear(50, 1)
             
         )
 

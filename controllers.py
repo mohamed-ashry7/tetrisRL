@@ -17,6 +17,7 @@ def basic_evaluation_fn(env,controller,abs_value=True):
         arr_ind=np.where(col==1)[0]
         col_height=0 if len(arr_ind)==0 else len(col)-arr_ind[0]
         col_heights.append(col_height)
+
         for i in range(state.shape[0]-1,0,-1):
             if j>0:
                 row_trans+=1 if state[i,j]!=state[i,j-1] else 0
@@ -31,23 +32,25 @@ def basic_evaluation_fn(env,controller,abs_value=True):
         wells+=(well_depth+1)*well_depth/2
     
     qu =sum([(col_heights[i]-col_heights[i-1])**2 for i in range(1,len(col_heights))])
+    avgh=sum(col_heights)//len(col_heights)
+    agg_height=sum(col_heights)
+    bumpiness=sum([abs(col_heights[i]-col_heights[i-1]) for i in range(1,len(col_heights))])
     if controller=='schwenker':
         # These feature came from [2]
         avgh= np.mean(col_heights)
         return -5*avgh-16*holes-qu if abs_value else (avgh,holes,qu,col_heights)
+
     elif controller=='near':
         # These features came from [1]
-        agg_height=sum(col_heights)
-        complete_lines=env.cleared_lines_per_move
-        bumpiness=sum([abs(col_heights[i]-col_heights[i-1]) for i in range(1,len(col_heights))])
-        return -0.51*agg_height+0.76*complete_lines-0.36*holes-0.18*bumpiness if abs_value else (agg_height,complete_lines,holes,bumpiness)
+        return -0.51*agg_height+0.76*env.cleared_lines_per_move-0.36*holes-0.18*bumpiness if abs_value else (agg_height,env.cleared_lines_per_move,holes,bumpiness)
+
     elif controller=='dellacherie':
         estimated_evaluation= -env.landing_height+50*(env.cleared_lines_per_move)**2-row_trans\
             -col_trans-4*holes-wells
         return estimated_evaluation if abs_value else (row_trans,col_trans,holes,wells) # The reason that landing height and cleared lines are not returned,
                                                                                         # That they can be got from the env directly
     elif controller=='lundgaard':
-        avgh=sum(col_heights)//len(col_heights)
+        
         holes= holes//5 + 1 
         if holes >5 :
             holes = 5 
@@ -56,6 +59,17 @@ def basic_evaluation_fn(env,controller,abs_value=True):
             qu=20
         single_valley = 1 if wells>0 else 0 
         return avgh,qu,single_valley,holes
+
+    elif controller=='el-tetris' :
+        value_est=-4.500158825082766*env.landing_height\
+        +3.4181268101392694*env.cleared_lines_per_move\
+        -3.2178882868487753*row_trans\
+        -9.348695305445199*col_trans\
+        -7.899265427351652*holes\
+        -3.3855972247263626*wells 
+        return value_est
+    elif controller=='ashry':
+        return agg_height//4,int(avgh),qu//10,holes//2,bumpiness//2
     else :
         return None
     

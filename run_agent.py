@@ -10,18 +10,16 @@ import torch
 import torch.nn as nn
 import time
 
-BATCH_SIZE = 360
-REPLAY_SIZE = 10000
-REPLAY_START_SIZE = 10000
-LEARNING_RATE = 2e-6
-SYNC_TARGET_FRAMES = 1000
-MEAN_REWARD_BOUND=100
-EPSILON_DECAY_LAST_FRAME = 1e6
+BATCH_SIZE = 512
+REPLAY_SIZE = 20000
+REPLAY_START_SIZE = 20000
+LEARNING_RATE = 1e-3
+SYNC_TARGET_FRAMES = 5000
+EPSILON_DECAY_LAST_FRAME = 9e5
 EPSILON_START = 1.0
 EPSILON_FINAL = 0.01
 DRAWING_RATE=25000
-GAMMA = 0.99
-
+N_ENVS=3
 
 def unpack_batch(batch,device):
 
@@ -50,7 +48,7 @@ def calc_loss(batch,net,target_net,device,ddqn):
         next_Q_values[done_mask]=0.0        
     expected_Q_values=rewards_v+GAMMA*next_Q_values.detach()
     
-    return nn.MSELoss()(Q_values,expected_Q_values)    
+    return nn.SmoothL1Loss()(Q_values,expected_Q_values)    
    
 def optimize_network(optimizer,batch,net,target_net,device='cpu',ddqn=True): 
   optimizer.zero_grad()
@@ -58,6 +56,7 @@ def optimize_network(optimizer,batch,net,target_net,device='cpu',ddqn=True):
   loss_fn.backward()
   optimizer.step()
   return loss_fn.item()
+
 
 
 
@@ -69,13 +68,16 @@ if __name__=="__main__":
 
 
   device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
-  env=TetrisEngine(10,20)
+  envs =[] 
+  for _ in range(N_ENVS):
+    env=TetrisEngine(10,20)
+    envs.append(env)
 
   net=DQN(env.state_shape(),env.number_actions()).to(device)
   target_net=DQN(env.state_shape(),env.number_actions()).to(device)
   replay_buffer=ReplayBuffer(REPLAY_SIZE)
   print(net)
-  agent=Agent(env,replay_buffer)
+  agent=Agent(envs,replay_buffer)
   
 
   model_path="./drive/My Drive/Colab Notebooks/exp9/"
@@ -92,36 +94,30 @@ if __name__=="__main__":
       frame_idx, ts_frame = 0, 0
       
       ts = time.time()
-      best_m_reward = None
 
       while True:
           frame_idx += 1
-          epsilon = max(EPSILON_FINAL, EPSILON_START - frame_idx / EPSILON_DECAY_LAST_FRAME)
-          reward,c,t = agent.play_step(net, epsilon, device=device)
-          
-          if reward is not None:
-              cleared_lines.append(c)
-              mean_cleared_lines.append(np.mean(cleared_lines[-100:]))
+          for _ in range(N_ENVS):
+            epsilon = max(EPSILON_FINAL, EPSILON_START - frame_idx / EPSILON_DECAY_LAST_FRAME)
+            r,c,t = agent.play_step(net, epsilon, device=device)
+            
+            if r is not None:
+                cleared_lines.append(c)
+                mean_cleared_lines.append(np.mean(cleared_lines[-100:]))
 
-              tetrominos.append(t)
-              mean_tetrominos.append(np.mean(tetrominos[-100:]))
+                tetrominos.append(t)
+                mean_tetrominos.append(np.mean(tetrominos[-100:]))
 
-              total_rewards.append(reward)
-              m_reward = np.mean(total_rewards[-100:])
-              mean_rewards.append(m_reward)
+                total_rewards.append(r)
+                m_reward = np.mean(total_rewards[-100:])
+                mean_rewards.append(m_reward)
 
-              speed = (frame_idx - ts_frame) / (time.time() - ts)
-              ts_frame = frame_idx
-              ts = time.time()
-              
-              print("%d: done %d games, reward %.3f, "
-              "eps %.2f, speed %.2f f/s" % (frame_idx, len(total_rewards), m_reward, epsilon,speed))
-              if best_m_reward is None or best_m_reward < m_reward:
-                  torch.save(net.state_dict(), f"{model_path}tetris_best_%.0f.dat" % m_reward)
-                  if best_m_reward is not None:
-                      print("Best reward updated %.3f -> %.3f" % (
-                      best_m_reward, m_reward))
-                  best_m_reward = m_reward
+                speed = (frame_idx - ts_frame) / (time.time() - ts)
+                ts_frame = frame_idx
+                ts = time.time()
+                
+                print("%d: done %d games, reward %.3f, "
+                "eps %.2f, lines %.3f, speed %.2f f/s" % (frame_idx, len(total_rewards), m_reward, epsilon, mean_cleared_lines[-1],speed))
               
 
           if len(replay_buffer) < REPLAY_START_SIZE:
@@ -135,11 +131,7 @@ if __name__=="__main__":
           q_losses.append(loss)
           mean_q_losses.append(np.mean(q_losses[-100:]))
           
-          for name, param in net.named_parameters():
-            if param.requires_grad:
-              print(name, param.data)
-              break
-          
+         
           if frame_idx %DRAWING_RATE ==0:
               games_number=len(total_rewards)
               plot_data(model_path+f"Rewards_of_{games_number}_games.png",mean_rewards,'Rewards',games_number)

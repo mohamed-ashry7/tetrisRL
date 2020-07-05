@@ -7,7 +7,7 @@
 
 import numpy as np
 import random
-from controllers import basic_evaluation_fn
+from controllers import basic_evaluation_fn,best_action
 from utils.tetris_engine_utils import *
 
 
@@ -42,7 +42,7 @@ class TetrisEngine:
         self.shape = None
         
         self.prev_state_evaluation=0
-        self.landing_height=None
+        self.landing_height=0
         self.cleared_lines=0
         self.cleared_lines_per_move=0
         # used for generating shapes
@@ -50,6 +50,7 @@ class TetrisEngine:
         
         self.piece_number=None
         self.tetrominos=0
+        self.total_reward=0
         # clear after initializing
         self.clear()
     
@@ -156,28 +157,21 @@ class TetrisEngine:
     def calc_state(self):
         
 
-        avgh,qu,single_valley,holes=basic_evaluation_fn(self,'lundgaard',False)
-        state=np.array([])
-        state=np.append(state,self.piece_number)
-        state=np.append(state,avgh)
-        state=np.append(state,qu)
-        state=np.append(state,single_valley)
-        state=np.append(state,holes)
+        agg_height,avgh,qu,holes,bumpiness=basic_evaluation_fn(self,'ashry',False)
         
-
+        state =[agg_height,avgh,qu,holes,bumpiness,self.piece_number]
+        
+        state=np.array(state)
         return state
     
     
-    def sigmoid(self,r):
-        # r/=25 
-        # return (1/(1+np.exp(-r))-0.5)*10
-        return r/15
-
-
     def calc_reward(self):
         
         state_evaluation= self.calc_state_evaluation()
-        reward=state_evaluation-self.prev_state_evaluation 
+        tm=self.time
+        if tm>5000:
+            tm=5000
+        reward=state_evaluation-self.prev_state_evaluation +tm/50
         self.prev_state_evaluation=state_evaluation
         return reward
     
@@ -208,7 +202,8 @@ class TetrisEngine:
         #calcualte the Reward based on the Evaluation of the states. 
         
         
-        reward = -1 if done else self.calc_reward() 
+        reward = -100 if done else self.calc_reward() 
+        self.total_reward+=reward
         return state, round(reward,3), done
 
     def clear(self):
@@ -218,10 +213,11 @@ class TetrisEngine:
         self.board = np.zeros_like(self.board)
         #Modification
         self.prev_state_evaluation=0
-        self.landing_height=None
+        self.landing_height=0
         self.cleared_lines=0
         self.cleared_lines_per_move=0
         self.tetrominos=0
+        self.total_reward=0
         return self.calc_state()
 
     def _set_piece(self, on=False):
@@ -254,7 +250,7 @@ class TetrisEngine:
     
     def calc_state_evaluation(self):
         
-        return basic_evaluation_fn(self,'near')
+        return basic_evaluation_fn(self,'dellacherie')
         
                 
 
@@ -262,11 +258,19 @@ class TetrisEngine:
 # if __name__ == '__main__':
 #     env = TetrisEngine(10,20)
 
-#     for a in range(40):
-#         s,_,_=env.step(a)
-#         print(env)
-#         print(s)
-#         env.clear()
+#     while True:
+#         _,_,d=env.step(best_action(env,'el-tetris'))
+#         if env.cleared_lines%201==0:
+#             print(env.cleared_lines)
+#         if d==True:
+
+#             print(env.cleared_lines)
+#             break
+    # for a in range(40):
+    #     s,_,_=env.step(a)
+    #     print(env)
+    #     print(s)
+    #     env.clear()
     # while True:
     #     action =np.random.randint(0,40)
     #     state , reward, done = env.step(action)
@@ -277,4 +281,5 @@ class TetrisEngine:
     #             break
     #         else:
     #             env.clear()
+
 
