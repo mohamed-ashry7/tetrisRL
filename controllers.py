@@ -16,6 +16,14 @@ def _calc_contour(col_heights,clamp_diff):
         diffs.append(d)
     return diffs
 
+def _calc_heights(board):
+    col_heights=[]
+    for j in range(board.shape[1]):
+        col=board[:,j]
+        arr_ind=np.where(col==1)[0]
+        col_height=0 if len(arr_ind)==0 else len(col)-arr_ind[0]
+        col_heights.append(col_height)
+    return col_heights
 
 def basic_evaluation_fn(env,controller,abs_value=True,clamp_diff=3,melax_factor=2):
     state=np.copy(env.board).T
@@ -101,6 +109,13 @@ def basic_evaluation_fn(env,controller,abs_value=True,clamp_diff=3,melax_factor=
         holes_per_column=[e//2 for e in holes_per_column]
         state.extend(holes_per_column)
         return state
+    elif controller=='schwenker2008':
+        par_board=[]
+        if 0<=maxh<=melax_factor:
+            par_board= state[-melax_factor:,:]
+        else:
+            par_board= state[-maxh:melax_factor-maxh,:]
+        return _calc_heights(par_board)
     else :
         return None
     

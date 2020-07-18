@@ -157,7 +157,7 @@ class TetrisEngine:
     def calc_state(self):
         
 
-        state=basic_evaluation_fn(self,'melax',melax_factor=4)
+        state=basic_evaluation_fn(self,'schwenker2008',melax_factor=4)
         state=np.append(state,self.piece_number)
         
         return state
