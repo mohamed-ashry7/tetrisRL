@@ -14,6 +14,9 @@ from controllers import best_action
 
 Experience=namedtuple('Experience',field_names=['state','action','reward','done','next_state'])
 GAMMA=0.99
+
+Experience=namedtuple('Experience',field_names=['state','action','reward','done','next_state'])
+GAMMA=0.9
 class Agent():
 
     

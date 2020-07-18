@@ -157,7 +157,7 @@ class TetrisEngine:
     def calc_state(self):
         
 
-        state=basic_evaluation_fn(self,'ttl',False)
+        state=basic_evaluation_fn(self,'melax',melax_factor=4)
         state=np.append(state,self.piece_number)
         
         return state
@@ -166,10 +166,10 @@ class TetrisEngine:
     def calc_reward(self):
         
         state_evaluation= self.calc_state_evaluation()
-        tm=self.time
-        if tm>5000:
-            tm=5000
-        reward=state_evaluation-self.prev_state_evaluation +tm/100
+        # tm=self.time
+        # if tm>5000:
+        #     tm=5000
+        reward=state_evaluation-self.prev_state_evaluation +self.time
         self.prev_state_evaluation=state_evaluation
         return reward
     
