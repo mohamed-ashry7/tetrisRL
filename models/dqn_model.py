@@ -30,7 +30,7 @@ class DQN(nn.Module):
             
             
         )
-        self.value_layers=nn.Sequential(
+        self.adv_layers=nn.Sequential(
             NoisyLinear(100, 70),
             nn.BatchNorm1d(70),
             nn.LeakyReLU(),
@@ -38,7 +38,7 @@ class DQN(nn.Module):
             NoisyLinear(70, number_actions)
             
         )
-        self.adv_layers=nn.Sequential(
+        self.value_layers=nn.Sequential(
             NoisyLinear(100, 50),
             nn.BatchNorm1d(50),
             nn.LeakyReLU(),

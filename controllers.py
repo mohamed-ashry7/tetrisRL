@@ -60,7 +60,7 @@ def basic_evaluation_fn(env,controller,abs_value=True,clamp_diff=3,melax_factor=
     agg_height=sum(col_heights)
     bumpiness=sum([abs(col_heights[i]-col_heights[i-1]) for i in range(1,len(col_heights))])
     maxh=max(col_heights)
-    if controller=='schwenker':
+    if controller=='schwenker2014':
         # These feature came from [2]
         avgh= np.mean(col_heights)
         return -5*avgh-16*holes-qu if abs_value else (avgh,holes,qu,col_heights)
