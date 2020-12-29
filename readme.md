@@ -1,51 +1,38 @@
-NN+Dellacherie+Schwenker
-BatchNorm1D
-https://medium.com/syncedreview/batchnorm-dropout-dnn-success-eed740e1ca13
-https://arxiv.org/pdf/1502.03167.pdf
-BatchNorm+Dropout
-https://stackoverflow.com/questions/39691902/ordering-of-batch-normalization-and-dropout
-https://arxiv.org/pdf/1801.05134.pdf
-https://www.cs.toronto.edu/~hinton/absps/JMLRdropout.pdf
-Large Batch Size 
-https://openai.com/blog/science-of-ai/
+# Tetris Engine for Reinforcement Learning
+
+This Library is implementing the Tetris Environment and adapt it to be used in the RL agents. 
 
 
+## Layout
 
-https://discuss.pytorch.org/t/batch-normalization-of-linear-layers/20989
-https://towardsdatascience.com/designing-your-neural-networks-a5e4617027ed
-
-
-exp1
-
-When state space -> whole board 
-reward -> not scaled and no time is used 
+* tetris_engine.py - this file contains the main class of Tetris engine. 
+* controllers.py - this file contains many controllers that help to evaluate the states and the reward functions. For more info check [this](https://www.researchgate.net/publication/345851349_Applying_Deep_Q-Networks_DQN_to_the_game_of_Tetris_using_high-level_state_spaces_and_different_reward_func-_tions)
 
 
-
-exp2 
-reward = -5*avgh - qu - 16*holes + 10 cleared_lines - wells + time_stamp 
-state space-> five rows 
-reward scaled 
+## Usage
 
 
-exp3
-TD0 
-reward -> Schwenker
-reward scaled 
+```python
+from tetris_engine import TetrisEngine
+ 
+width,height = 10,20
+env = TetrisEngine(width,height)
 
-V1 BatchSize 640,LR->1e-5 ->
+```
 
-V2 BatchSize 120 lr->1e-4
+This engine is mainly designed for RL agents. It takes the OpenAI interface
+```python
 
-V3 BatchSize 120 lr->1e-4 no time in the reward function no penalty at losing
+while True:
+    # Get an action from a theoretical AI agent
+    action = agent(state)
 
-V4 BatchSize lr 1e-4 timestamp penalty clippedStateEvaluation only between -15,15
+    # Sim step takes action and returns results
+    next_state, reward, done = env.step(action)
 
-V5 -10,10 HuberLoss 
+    if done:
+        break
 
-V6 SYNC_TARGET_FRAMES = 10000 EPSILON_DECAY_LAST_FRAME = 50000 death penalty =-1 
+```
 
-V7 SYNC_TARGET_FRAMES = 10000 EPSILON_DECAY_LAST_FRAME = 200 000 death penalty =-1 Fixed some state space calculation 
-
-23 lines cleared on average in 1000 games. 
-
+This engine is integrated into a [dqn_agent](https://github.com/mohamed-ashry7/tetrisRL)
