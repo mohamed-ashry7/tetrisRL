@@ -44,4 +44,4 @@ ehthumbs.db
 Thumbs.db
 
 
-run_agent_ne.py
+./run_agent_ne.py
