@@ -77,7 +77,7 @@ if __name__=="__main__":
   parser.add_argument("--mode",default='train',help="Define the mode of the model play or train",action="store")
   parser.add_argument("--model",default=None,help="Model file to load",action='store')
   parser.add_argument("--model-dir",default="./dqn_models_stats/",help="Directory to save models at it",action='store')
-  parser.add_argument("--play-times",default=None,help="Testing the model how many times",action='store')
+  parser.add_argument("--play-times",default=100,help="Testing the model how many times",action='store')
   
   args=parser.parse_args()
     
